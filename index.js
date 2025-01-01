@@ -7,7 +7,7 @@ const app=express();
 const _dirname=path.resolve();
 
 app.use(cors({
-  origin:"https://portfolio-frontend-opal-pi.vercel.app/",
+  origin:"*",
   credentials:true
 }));
 app.use(express.json());
