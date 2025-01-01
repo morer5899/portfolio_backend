@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 const sendMail=async(req,res)=>{
   try {
     const {name,email,message}=req.body;
+    console.log(name)
     if(!name || !email || !message){
       return res.status(400).json({message:"please enter all information"});
     }

@@ -5,11 +5,12 @@ import {router as userRoutes} from "./routes/user.routes.js";
 import path from "path";
 const app=express();
 const _dirname=path.resolve();
-app.use(express.json());
+
 app.use(cors({
-  origin:"http://localhost:5173",
+  origin:"https://portfolio-frontend-c0tjkb46s-suhas-projects-0d48ce5e.vercel.app/",
   credentials:true
 }));
+app.use(express.json());
 dotenv.config();
 app.use("/user",userRoutes);
 const PORT=process.env.PORT || 8080;
