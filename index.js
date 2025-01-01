@@ -7,17 +7,13 @@ const app=express();
 const _dirname=path.resolve();
 
 app.use(cors({
-  origin:"*",
+  origin:"https://portfolio-frontend-opal-pi.vercel.app/",
   credentials:true
 }));
 app.use(express.json());
 dotenv.config();
 app.use("/user",userRoutes);
 const PORT=process.env.PORT || 8080;
-app.use(express.static(path.join(_dirname,"/frontend/dist")));
-app.get("*",(req,res)=>{
-  res.sendFile(path.resolve(_dirname,"frontend","dist","index.html"));
-})
 app.listen(PORT,()=>{
   console.log(`Server is running on port no ${PORT}`);
 })
