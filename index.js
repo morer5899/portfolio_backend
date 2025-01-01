@@ -7,7 +7,7 @@ const app=express();
 const _dirname=path.resolve();
 
 app.use(cors({
-  origin:"https://portfolio-frontend-c0tjkb46s-suhas-projects-0d48ce5e.vercel.app/",
+  origin:"https://portfolio-frontend-c0tjkb46s-suhas-projects-0d48ce5e.vercel.app",
   credentials:true
 }));
 app.use(express.json());
