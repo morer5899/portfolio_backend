@@ -1,4 +1,4 @@
-const cloudinary = require('cloudinary').v2;
+const cloudinary = require('cloudinary');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
 
@@ -9,9 +9,12 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// Get the v2 API
+const cloudinaryV2 = cloudinary.v2;
+
 // Configure multer storage for Cloudinary
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary: cloudinaryV2,
   params: {
     folder: 'portfolio', // Folder in Cloudinary where files will be stored
     allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
