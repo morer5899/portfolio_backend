@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const Project = require('../models/Project');
-const upload = require('../utils/fileUpload');
+const { upload, handleUploadErrors } = require('../utils/fileUpload');
 const fs = require('fs');
 const path = require('path');
+const auth = require('../middleware/auth');
 
 // @route   GET /api/projects
 // @desc    Get all projects
@@ -55,18 +56,29 @@ router.get('/:id', async (req, res) => {
 // @route   POST /api/projects
 // @desc    Create new project
 // @access  Private (Admin only)
-router.post('/', upload.single('image'), [
-  body('title').notEmpty().withMessage('Title is required'),
-  body('description').notEmpty().withMessage('Description is required'),
-  body('technologies').optional().isString().withMessage('Technologies must be a string'),
-  body('githubUrl').optional().isURL().withMessage('GitHub URL must be valid'),
-  body('liveUrl').optional().isURL().withMessage('Live URL must be valid'),
-  body('featured').optional().isBoolean().withMessage('Featured must be boolean')
-], async (req, res) => {
+router.post('/', 
+  auth, // Require authentication
+  upload.single('image'),
+  handleUploadErrors, // Handle file upload errors
+  [
+    body('title').notEmpty().withMessage('Title is required'),
+    body('description').notEmpty().withMessage('Description is required'),
+    body('technologies').optional().isString().withMessage('Technologies must be a string'),
+    body('githubUrl').optional().isURL().withMessage('GitHub URL must be valid'),
+    body('liveUrl').optional().isURL().withMessage('Live URL must be valid'),
+    body('featured').optional().isBoolean().withMessage('Featured must be boolean')
+  ],
+  async (req, res) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      // Clean up uploaded file if validation fails
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Error deleting file after validation failed:', err);
+        });
+      }
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -82,22 +94,37 @@ router.post('/', upload.single('image'), [
     // Get image path if file was uploaded
     const imagePath = req.file ? `/uploads/${req.file.filename}` : '';
 
-    const newProject = new Project({
-      title,
-      description,
-      image: imagePath,
-      technologies: techArray,
-      githubUrl: githubUrl || '',
-      liveUrl: liveUrl || '',
-      featured: featured || false
-    });
+    try {
+      const newProject = new Project({
+        title,
+        description,
+        image: imagePath,
+        technologies: techArray,
+        githubUrl: githubUrl || '',
+        liveUrl: liveUrl || '',
+        featured: featured || false
+      });
 
-    const project = await newProject.save();
-    res.status(201).json({
-      success: true,
-      message: 'Project created successfully',
-      project
-    });
+      const project = await newProject.save();
+      return res.status(201).json({
+        success: true,
+        message: 'Project created successfully',
+        project
+      });
+    } catch (dbError) {
+      // Clean up uploaded file if database save fails
+      if (req.file) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.error('Error deleting file after DB error:', err);
+        });
+      }
+      console.error('Database error:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error saving project to database',
+        error: process.env.NODE_ENV === 'production' ? undefined : dbError.message
+      });
+    }
   } catch (error) {
     console.error('Error creating project:', error);
     res.status(500).json({ 

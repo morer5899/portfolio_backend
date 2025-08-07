@@ -2,21 +2,51 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:3001',
+  'https://portfolio-ftd7.vercel.app',
+  'https://portfolio-ftd7.vercel.app/'
+];
+
 // Middleware
 app.use(cors({
-  origin:"http://localhost:3001"
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Handle preflight requests
+app.options('*', cors());
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files from the public directory
-app.use(express.static('public'));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), {
+  setHeaders: (res, path) => {
+    // Set proper cache headers for uploaded files
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+  }
+}));
 
 // Log static file serving
 app.use('/uploads', (req, res, next) => {
