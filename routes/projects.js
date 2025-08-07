@@ -5,7 +5,7 @@ const Project = require('../models/Project');
 const { upload, handleUploadErrors } = require('../utils/fileUpload');
 const fs = require('fs');
 const path = require('path');
-const auth = require('../middleware/auth');
+const { auth, admin } = require('../middleware/auth');
 
 // @route   GET /api/projects
 // @desc    Get all projects
@@ -58,6 +58,7 @@ router.get('/:id', async (req, res) => {
 // @access  Private (Admin only)
 router.post('/', 
   auth, // Require authentication
+  admin, // Require admin role
   upload.single('image'),
   handleUploadErrors, // Handle file upload errors
   [
