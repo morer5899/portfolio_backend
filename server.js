@@ -42,7 +42,8 @@ app.use('/api/projects', require('./routes/projects'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/uploads', require('./routes/uploads'));
-
+app.use('/api', require('./routes/chat'));
+app.use('/api/coding', require('./routes/coding'));
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ 
