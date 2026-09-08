@@ -1,80 +1,72 @@
-const cloudinary = require('cloudinary');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const streamifier = require('streamifier');
 
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Get the v2 API
-const cloudinaryV2 = cloudinary.v2;
+// Multer stores uploaded file in memory
+const storage = multer.memoryStorage();
 
-// Configure multer storage for Cloudinary
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinaryV2,
-  params: {
-    folder: 'portfolio', // Folder in Cloudinary where files will be stored
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [
-      { width: 1200, crop: 'scale', quality: 'auto' }, // Optimize image size
-      { fetch_format: 'auto' } // Auto-optimize format
-    ]
-  },
-});
-
-// Create multer upload instance with increased file size limit
-const upload = multer({ 
-  storage: storage,
+const upload = multer({
+  storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // Increased to 10MB file size limit
-    files: 1, // Limit to 1 file per request
+    fileSize: 10 * 1024 * 1024, // 10 MB
+    files: 1,
   },
   fileFilter: (req, file, cb) => {
-    // Accept only image files
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    
-    if (file.size > 10 * 1024 * 1024) {
-      return cb(new Error('File size must be less than 10MB'), false);
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      return cb(
+        new Error('Only JPEG, PNG, and WebP images are allowed!'),
+        false
+      );
     }
-    
-    if (allowedMimeTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JPEG, PNG, and WebP images are allowed!'), false);
-    }
-  }
+
+    cb(null, true);
+  },
 });
 
-// Error handling middleware for file uploads
-const handleUploadErrors = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    // A Multer error occurred when uploading
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({
-        success: false,
-        message: 'File too large. Maximum size is 10MB.'
-      });
-    }
-    return res.status(400).json({
-      success: false,
-      message: `File upload error: ${err.message}`
-    });
-  } else if (err) {
-    // An unknown error occurred
-    return res.status(500).json({
-      success: false,
-      message: 'Error processing file upload',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
-  }
-  // No errors, proceed to next middleware
-  next();
+// Upload buffer to Cloudinary
+const uploadToCloudinary = (file) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'portfolio',
+        transformation: [
+          {
+            width: 1200,
+            crop: 'scale',
+            quality: 'auto',
+          },
+          {
+            fetch_format: 'auto',
+          },
+        ],
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      }
+    );
+
+    streamifier.createReadStream(file.buffer).pipe(stream);
+  });
 };
 
-// Function to delete file from Cloudinary
+// Delete image from Cloudinary
 const deleteFromCloudinary = async (publicId) => {
   try {
     await cloudinary.uploader.destroy(publicId);
@@ -85,9 +77,36 @@ const deleteFromCloudinary = async (publicId) => {
   }
 };
 
+// Upload error handler
+const handleUploadErrors = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        message: 'File too large. Maximum size is 10MB.',
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: `File upload error: ${err.message}`,
+    });
+  }
+
+  if (err) {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  next();
+};
+
 module.exports = {
   cloudinary,
   upload,
+  uploadToCloudinary,
   deleteFromCloudinary,
-  handleUploadErrors
+  handleUploadErrors,
 };
